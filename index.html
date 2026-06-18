@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Cobertura de áreas verdes | Querétaro</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#111;
+}
+
+#map{
+height:100vh;
+width:100%;
+}
+
+#titulo{
+
+position:absolute;
+
+top:10px;
+
+left:50%;
+
+transform:translateX(-50%);
+
+z-index:1000;
+
+background:rgba(15,15,15,0.95);
+
+padding:12px 18px;
+
+border-radius:10px;
+
+color:white;
+
+text-align:center;
+
+max-width:650px;
+
+}
+
+#titulo h2{
+
+margin:0;
+
+font-size:22px;
+
+}
+
+#titulo p{
+
+margin:6px 0 0 0;
+
+font-size:12px;
+
+color:#d8d8d8;
+
+}
+
+.disclaimer{
+
+position:absolute;
+
+bottom:10px;
+
+left:10px;
+
+z-index:1000;
+
+background:rgba(0,0,0,.85);
+
+padding:10px;
+
+border-radius:8px;
+
+font-size:11px;
+
+color:white;
+
+max-width:320px;
+
+}
+
+.legend{
+
+background:#222;
+
+padding:12px;
+
+color:white;
+
+line-height:22px;
+
+border-radius:8px;
+
+}
+
+.legend i{
+
+width:18px;
+
+height:18px;
+
+float:left;
+
+margin-right:8px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="titulo">
+
+<h2>Cobertura de áreas verdes por manzana en Querétaro, Querétaro</h2>
+
+<p>Mapa elaborado por Geografía en Viz con imágenes satelitales + métodos de inteligencia artificial.</p>
+
+</div>
+
+<div id="map"></div>
+
+<div class="disclaimer">
+
+<b>Disclaimer</b><br><br>
+
+Proyecto independiente desarrollado desde la ciencia ciudadana y la cartografía libre.
+
+Sin financiamiento de gobiernos, universidades, ONG o instituciones privadas.
+
+Los valores representan estimaciones derivadas de imágenes satelitales y metodologías experimentales.
+
+</div>
+
+<script>
+
+var map = L.map('map').setView([20.5888,-100.3899],12);
+
+L.tileLayer(
+
+'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+
+{
+
+attribution:'© Carto'
+
+}
+
+).addTo(map);
+
+
+function getColor(v){
+
+if(v === null){
+
+return '#444444';
+
+}
+
+if(v < 0.08){
+
+return '#d73027';
+
+}
+
+else if(v < 0.12){
+
+return '#fc8d59';
+
+}
+
+else if(v < 0.16){
+
+return '#fee08b';
+
+}
+
+else if(v < 0.20){
+
+return '#66bd63';
+
+}
+
+else{
+
+return '#006837';
+
+}
+
+}
+
+
+function getCategoria(v){
+
+if(v === null){
+
+return 'Sin datos';
+
+}
+
+if(v < 0.08){
+
+return 'Muy baja';
+
+}
+
+else if(v < 0.12){
+
+return 'Baja';
+
+}
+
+else if(v < 0.16){
+
+return 'Moderada';
+
+}
+
+else if(v < 0.20){
+
+return 'Alta';
+
+}
+
+else{
+
+return 'Muy alta';
+
+}
+
+}
+
+
+function estilo(feature){
+
+var valor = feature.properties.MSAVI_mean;
+
+return{
+
+fillColor:getColor(valor),
+
+weight:0.2,
+
+opacity:1,
+
+color:'#ffffff',
+
+fillOpacity:0.75
+
+};
+
+}
+
+
+function popup(feature,layer){
+
+var valor = feature.properties.MSAVI_mean;
+
+if(valor===null){
+
+layer.bindPopup(
+
+'<b>MSAVI:</b> Sin datos'
+
+);
+
+}
+
+else{
+
+layer.bindPopup(
+
+'<b>MSAVI:</b> '
+
++valor.toFixed(3)
+
++
+
+'<br><b>Categoría:</b> '
+
++getCategoria(valor)
+
+);
+
+}
+
+}
+
+
+var grupoManzanas=L.geoJSON(null,{
+
+style:estilo,
+
+onEachFeature:popup
+
+});
+
+
+var grupoEspacios=L.geoJSON(null,{
+
+style:estilo,
+
+onEachFeature:popup
+
+});
+
+
+Promise.all([
+
+fetch('Manzanas_areasverdes.geojson').then(r=>r.json()),
+
+fetch('espacio_publico_areasverdes.geojson').then(r=>r.json())
+
+])
+
+.then(([manzanas,espacios])=>{
+
+grupoManzanas.addData(manzanas);
+
+grupoEspacios.addData(espacios);
+
+grupoManzanas.addTo(map);
+
+grupoEspacios.addTo(map);
+
+map.fitBounds(grupoManzanas.getBounds());
+
+})
+
+.catch(error=>{
+
+console.log(error);
+
+});
+
+
+L.control.layers(
+
+{},
+
+{
+
+'Manzanas':grupoManzanas,
+
+'Espacios públicos':grupoEspacios
+
+}
+
+).addTo(map);
+
+
+var legend=L.control({position:'bottomright'});
+
+legend.onAdd=function(){
+
+var div=L.DomUtil.create('div','legend');
+
+div.innerHTML=
+
+'<b>Cobertura vegetal</b><br><br>'
+
++'<i style="background:#d73027"></i>Muy baja (<0.08)<br>'
+
++'<i style="background:#fc8d59"></i>Baja (0.08 - 0.12)<br>'
+
++'<i style="background:#fee08b"></i>Moderada (0.12 - 0.16)<br>'
+
++'<i style="background:#66bd63"></i>Alta (0.16 - 0.20)<br>'
+
++'<i style="background:#006837"></i>Muy alta (>0.20)<br>'
+
++'<i style="background:#444444"></i>Sin datos';
+
+return div;
+
+};
+
+legend.addTo(map);
+
+</script>
+
+</body>
+
+</html>
